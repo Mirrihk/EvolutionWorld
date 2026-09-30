@@ -19,14 +19,15 @@ public class WorldGrid : MonoBehaviour
     [Min(0.01f)] public float waterHeight = 0.08f;
 
     private Transform generatedCells;
+
     private Material[] terrainMaterials;
     private Material waterMaterial;
 
-    // These arrays store environmental information for each grid cell.
+    private float[,] elevationMap;
     private float[,] moistureMap;
     private bool[,] waterMap;
 
-    private void Start()
+    private void Awake()
     {
         GenerateWorld();
     }
@@ -43,6 +44,7 @@ public class WorldGrid : MonoBehaviour
         generatedCells = new GameObject("GeneratedCells").transform;
         generatedCells.SetParent(transform, false);
 
+        elevationMap = new float[width, depth];
         moistureMap = new float[width, depth];
         waterMap = new bool[width, depth];
 
@@ -53,13 +55,11 @@ public class WorldGrid : MonoBehaviour
         {
             for (int z = 0; z < depth; z++)
             {
-                // Elevation controls the shape of the land.
                 float elevation = Mathf.PerlinNoise(
                     (x + seed) * noiseScale,
                     (z + seed) * noiseScale
                 );
 
-                // Moisture is a separate noise field.
                 float moisture = Mathf.PerlinNoise(
                     (x + moistureSeed) * moistureScale,
                     (z + moistureSeed) * moistureScale
@@ -67,16 +67,29 @@ public class WorldGrid : MonoBehaviour
 
                 bool isWater = elevation < waterLevel;
 
+                elevationMap[x, z] = elevation;
                 moistureMap[x, z] = moisture;
                 waterMap[x, z] = isWater;
 
-                float height = isWater
-                    ? waterHeight
-                    : Mathf.Lerp(0.25f, heightMultiplier, elevation);
+                float height;
 
-                GameObject cell = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                if (isWater)
+                {
+                    height = waterHeight;
+                }
+                else
+                {
+                    height = Mathf.Lerp(
+                        0.25f,
+                        heightMultiplier,
+                        elevation
+                    );
+                }
+
+                GameObject cell =
+                    GameObject.CreatePrimitive(PrimitiveType.Cube);
+
                 cell.name = $"Cell_{x}_{z}";
-
                 cell.transform.SetParent(generatedCells, false);
 
                 cell.transform.localPosition = new Vector3(
@@ -93,69 +106,78 @@ public class WorldGrid : MonoBehaviour
 
                 Destroy(cell.GetComponent<Collider>());
 
-                Renderer renderer = cell.GetComponent<Renderer>();
+                Renderer cellRenderer =
+                    cell.GetComponent<Renderer>();
 
                 if (isWater)
                 {
-                    renderer.sharedMaterial = waterMaterial;
+                    cellRenderer.sharedMaterial = waterMaterial;
                 }
                 else
                 {
-                    int terrainType = GetTerrainType(elevation, moisture);
-                    renderer.sharedMaterial = terrainMaterials[terrainType];
+                    int terrainType =
+                        GetTerrainType(elevation, moisture);
+
+                    cellRenderer.sharedMaterial =
+                        terrainMaterials[terrainType];
                 }
             }
         }
     }
 
-    private int GetTerrainType(float elevation, float moisture)
+    private int GetTerrainType(
+        float elevation,
+        float moisture)
     {
         if (elevation > 0.82f)
         {
-            return 4; // Mountain
+            return 4;
         }
 
         if (moisture < 0.25f)
         {
-            return 2; // Dry land
+            return 2;
         }
 
         if (moisture > 0.70f)
         {
-            return 0; // Very fertile land
+            return 0;
         }
 
         if (elevation < 0.55f)
         {
-            return 1; // Grassland
+            return 1;
         }
 
-        return 3; // Hills
+        return 3;
     }
 
     private void CreateMaterials()
     {
-        Color[] colors =
+        Color[] terrainColors =
         {
-            new Color(0.10f, 0.25f, 0.08f), // Fertile
-            new Color(0.20f, 0.50f, 0.12f), // Grass
-            new Color(0.65f, 0.50f, 0.18f), // Dry
-            new Color(0.35f, 0.25f, 0.15f), // Hills
-            new Color(0.65f, 0.65f, 0.65f)  // Mountains
+            new Color(0.10f, 0.25f, 0.08f),
+            new Color(0.20f, 0.50f, 0.12f),
+            new Color(0.65f, 0.50f, 0.18f),
+            new Color(0.35f, 0.25f, 0.15f),
+            new Color(0.65f, 0.65f, 0.65f)
         };
 
-        Shader shader = Shader.Find("Universal Render Pipeline/Lit");
+        Shader shader =
+            Shader.Find("Universal Render Pipeline/Lit");
 
         if (shader == null)
         {
             shader = Shader.Find("Standard");
         }
 
-        terrainMaterials = new Material[colors.Length];
+        terrainMaterials =
+            new Material[terrainColors.Length];
 
-        for (int i = 0; i < colors.Length; i++)
+        for (int i = 0; i < terrainColors.Length; i++)
         {
-            terrainMaterials[i] = CreateMaterial(shader, colors[i]);
+            terrainMaterials[i] =
+                CreateMaterial(shader, terrainColors[i]);
         }
 
         waterMaterial = CreateMaterial(
@@ -164,7 +186,9 @@ public class WorldGrid : MonoBehaviour
         );
     }
 
-    private Material CreateMaterial(Shader shader, Color color)
+    private Material CreateMaterial(
+        Shader shader,
+        Color color)
     {
         Material material = new Material(shader);
 
@@ -181,7 +205,6 @@ public class WorldGrid : MonoBehaviour
         return material;
     }
 
-    // These methods will be used later by plants and animals.
     public bool IsWater(int x, int z)
     {
         if (!IsInsideGrid(x, z) || waterMap == null)
@@ -202,8 +225,54 @@ public class WorldGrid : MonoBehaviour
         return moistureMap[x, z];
     }
 
+    public float GetSurfaceHeight(int x, int z)
+    {
+        if (!IsInsideGrid(x, z) ||
+            elevationMap == null ||
+            waterMap == null)
+        {
+            return 0f;
+        }
+
+        if (waterMap[x, z])
+        {
+            return waterHeight;
+        }
+
+        return Mathf.Lerp(
+            0.25f,
+            heightMultiplier,
+            elevationMap[x, z]
+        );
+    }
+
+    public Vector3 GetCellWorldPosition(
+        int x,
+        int z,
+        float verticalOffset = 0f)
+    {
+        if (!IsInsideGrid(x, z))
+        {
+            return transform.position;
+        }
+
+        float centerX = (width - 1) / 2f;
+        float centerZ = (depth - 1) / 2f;
+
+        Vector3 localPosition = new Vector3(
+            (x - centerX) * cellSize,
+            GetSurfaceHeight(x, z) + verticalOffset,
+            (z - centerZ) * cellSize
+        );
+
+        return transform.TransformPoint(localPosition);
+    }
+
     private bool IsInsideGrid(int x, int z)
     {
-        return x >= 0 && x < width && z >= 0 && z < depth;
+        return x >= 0 &&
+               x < width &&
+               z >= 0 &&
+               z < depth;
     }
 }
