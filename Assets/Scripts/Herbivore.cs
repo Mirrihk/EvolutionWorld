@@ -2,42 +2,18 @@ using UnityEngine;
 
 public class Herbivore : MonoBehaviour
 {
-    [Header("Movement")]
-    [Min(0.1f)]
-    public float speed = 2f;
+    [Header("Genome")]
+    public HerbivoreGenome genome =
+        new HerbivoreGenome();
 
-    [Min(0.1f)]
-    public float eatingDistance = 0.6f;
+    [Header("Mutation")]
+    [Range(0f, 1f)]
+    public float mutationChance = 0.35f;
 
-    [Min(0.05f)]
-    public float searchInterval = 0.25f;
+    [Range(0f, 1f)]
+    public float mutationStrength = 0.15f;
 
-    [Header("Energy")]
-    [Min(0.1f)]
-    public float maxEnergy = 20f;
-
-    [Min(0.1f)]
-    public float startingEnergy = 20f;
-
-    [Min(0.01f)]
-    public float energyDrainPerSecond = 1f;
-
-    [Min(0.1f)]
-    public float foodPerBite = 2f;
-
-    [Header("Life Cycle")]
-    [Min(1f)]
-    public float lifespan = 60f;
-
-    [Min(0f)]
-    public float maturityAge = 5f;
-
-    [Min(0.1f)]
-    public float reproductionCooldown = 12f;
-
-    [Min(0.1f)]
-    public float reproductionEnergyThreshold = 14f;
-
+    [Header("Reproduction")]
     [Min(0.1f)]
     public float reproductionEnergyCost = 6f;
 
@@ -61,9 +37,11 @@ public class Herbivore : MonoBehaviour
     {
         if (!initialized)
         {
+            ApplyGenome();
+
             Energy = Mathf.Min(
-                startingEnergy,
-                maxEnergy
+                genome.startingEnergy,
+                genome.maxEnergy
             );
 
             Age = 0f;
@@ -81,7 +59,7 @@ public class Herbivore : MonoBehaviour
             Time.deltaTime;
 
         Energy -=
-            energyDrainPerSecond *
+            genome.energyDrainPerSecond *
             Time.deltaTime;
 
         if (Energy <= 0f)
@@ -90,7 +68,7 @@ public class Herbivore : MonoBehaviour
             return;
         }
 
-        if (Age >= lifespan)
+        if (Age >= genome.lifespan)
         {
             Destroy(gameObject);
             return;
@@ -105,7 +83,7 @@ public class Herbivore : MonoBehaviour
             if (searchTimer <= 0f)
             {
                 FindClosestPlant();
-                searchTimer = searchInterval;
+                searchTimer = 0.25f;
             }
 
             return;
@@ -117,6 +95,12 @@ public class Herbivore : MonoBehaviour
         {
             EatTargetPlant();
         }
+    }
+
+    private void ApplyGenome()
+    {
+        transform.localScale =
+            Vector3.one * genome.bodySize;
     }
 
     private void FindClosestPlant()
@@ -161,11 +145,13 @@ public class Herbivore : MonoBehaviour
             Vector3.MoveTowards(
                 transform.position,
                 targetPosition,
-                speed * Time.deltaTime
+                genome.speed *
+                Time.deltaTime
             );
 
         Vector3 lookDirection =
-            targetPosition - transform.position;
+            targetPosition -
+            transform.position;
 
         lookDirection.y = 0f;
 
@@ -186,16 +172,19 @@ public class Herbivore : MonoBehaviour
                 targetPlant.transform.position
             );
 
-        return distance <= eatingDistance;
+        return distance <=
+            genome.eatingDistance;
     }
 
     private void EatTargetPlant()
     {
         float foodEaten =
-            targetPlant.Eat(foodPerBite);
+            targetPlant.Eat(
+                genome.foodPerBite
+            );
 
         Energy = Mathf.Min(
-            maxEnergy,
+            genome.maxEnergy,
             Energy + foodEaten
         );
 
@@ -204,7 +193,7 @@ public class Herbivore : MonoBehaviour
 
     private void TryReproduce()
     {
-        if (Age < maturityAge)
+        if (Age < genome.maturityAge)
         {
             return;
         }
@@ -214,7 +203,8 @@ public class Herbivore : MonoBehaviour
             return;
         }
 
-        if (Energy < reproductionEnergyThreshold)
+        if (Energy <
+            genome.reproductionEnergyThreshold)
         {
             return;
         }
@@ -243,35 +233,56 @@ public class Herbivore : MonoBehaviour
         Herbivore offspring =
             offspringObject.GetComponent<Herbivore>();
 
+        offspring.genome =
+            genome.Clone();
+
+        offspring.genome.Mutate(
+            mutationChance,
+            mutationStrength
+        );
+
+        offspring.mutationChance =
+            mutationChance;
+
+        offspring.mutationStrength =
+            mutationStrength;
+
+        offspring.reproductionEnergyCost =
+            reproductionEnergyCost;
+
+        offspring.offspringStartingEnergy =
+            offspringStartingEnergy;
+
+        offspring.maxPopulation =
+            maxPopulation;
+
         Energy = Mathf.Max(
             0f,
             Energy - reproductionEnergyCost
         );
 
         reproductionTimer =
-            reproductionCooldown;
+            genome.reproductionCooldown;
 
-        offspring.InitializeOffspring(
-            offspringStartingEnergy
-        );
+        offspring.InitializeOffspring();
     }
 
-    public void InitializeOffspring(
-        float offspringEnergy)
+    public void InitializeOffspring()
     {
         initialized = true;
 
         Age = 0f;
-
-        Energy = Mathf.Min(
-            offspringEnergy,
-            maxEnergy
-        );
-
         targetPlant = null;
         searchTimer = 0f;
 
         reproductionTimer =
-            reproductionCooldown;
+            genome.reproductionCooldown;
+
+        ApplyGenome();
+
+        Energy = Mathf.Min(
+            offspringStartingEnergy,
+            genome.maxEnergy
+        );
     }
 }

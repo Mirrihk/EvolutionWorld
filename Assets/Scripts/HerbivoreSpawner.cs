@@ -11,21 +11,13 @@ public class HerbivoreSpawner : MonoBehaviour
 
     public int seed = 13579;
 
-    [Header("Appearance")]
-    [Min(0.1f)]
-    public float herbivoreSize = 0.35f;
-
-    public Color herbivoreColor =
-        new Color(0.65f, 0.25f, 0.08f);
-
-    [Header("Movement")]
+    [Header("Initial Genome")]
     [Min(0.1f)]
     public float speed = 2f;
 
-    [Min(0.1f)]
-    public float eatingDistance = 0.6f;
+    [Min(0.15f)]
+    public float herbivoreSize = 0.35f;
 
-    [Header("Energy")]
     [Min(0.1f)]
     public float maxEnergy = 20f;
 
@@ -38,7 +30,9 @@ public class HerbivoreSpawner : MonoBehaviour
     [Min(0.1f)]
     public float foodPerBite = 2f;
 
-    [Header("Life Cycle")]
+    [Min(0.1f)]
+    public float eatingDistance = 0.6f;
+
     [Min(1f)]
     public float lifespan = 60f;
 
@@ -51,6 +45,7 @@ public class HerbivoreSpawner : MonoBehaviour
     [Min(0.1f)]
     public float reproductionEnergyThreshold = 14f;
 
+    [Header("Reproduction")]
     [Min(0.1f)]
     public float reproductionEnergyCost = 6f;
 
@@ -60,6 +55,17 @@ public class HerbivoreSpawner : MonoBehaviour
     [Min(1)]
     public int maxPopulation = 20;
 
+    [Header("Mutation")]
+    [Range(0f, 1f)]
+    public float mutationChance = 0.35f;
+
+    [Range(0f, 1f)]
+    public float mutationStrength = 0.15f;
+
+    [Header("Appearance")]
+    public Color herbivoreColor =
+        new Color(0.65f, 0.25f, 0.08f);
+
     private Transform herbivoreContainer;
     private Material herbivoreMaterial;
 
@@ -67,13 +73,14 @@ public class HerbivoreSpawner : MonoBehaviour
     {
         if (worldGrid == null)
         {
-            worldGrid = GetComponent<WorldGrid>();
+            worldGrid =
+                GetComponent<WorldGrid>();
         }
 
         if (worldGrid == null)
         {
             Debug.LogError(
-                "HerbivoreSpawner needs a WorldGrid reference."
+                "HerbivoreSpawner needs a WorldGrid."
             );
 
             return;
@@ -86,7 +93,9 @@ public class HerbivoreSpawner : MonoBehaviour
     private void SpawnHerbivores()
     {
         herbivoreContainer =
-            new GameObject("Herbivores").transform;
+            new GameObject(
+                "Herbivores"
+            ).transform;
 
         herbivoreContainer.SetParent(
             transform,
@@ -95,25 +104,36 @@ public class HerbivoreSpawner : MonoBehaviour
 
         Random.InitState(seed);
 
-        for (int i = 0;
-             i < startingHerbivores;
-             i++)
+        for (
+            int i = 0;
+            i < startingHerbivores;
+            i++
+        )
         {
             SpawnOneHerbivore(i);
         }
     }
 
-    private void SpawnOneHerbivore(int index)
+    private void SpawnOneHerbivore(
+        int index)
     {
-        for (int attempt = 0;
-             attempt < 100;
-             attempt++)
+        for (
+            int attempt = 0;
+            attempt < 100;
+            attempt++
+        )
         {
             int x =
-                Random.Range(0, worldGrid.width);
+                Random.Range(
+                    0,
+                    worldGrid.width
+                );
 
             int z =
-                Random.Range(0, worldGrid.depth);
+                Random.Range(
+                    0,
+                    worldGrid.depth
+                );
 
             if (worldGrid.IsWater(x, z))
             {
@@ -132,9 +152,6 @@ public class HerbivoreSpawner : MonoBehaviour
                 herbivoreContainer,
                 true
             );
-
-            herbivore.transform.localScale =
-                Vector3.one * herbivoreSize;
 
             herbivore.transform.position =
                 worldGrid.GetCellWorldPosition(
@@ -156,31 +173,44 @@ public class HerbivoreSpawner : MonoBehaviour
             Herbivore data =
                 herbivore.AddComponent<Herbivore>();
 
-            data.speed = speed;
-            data.eatingDistance =
-                eatingDistance;
+            data.genome.speed =
+                speed;
 
-            data.maxEnergy = maxEnergy;
-            data.startingEnergy =
+            data.genome.bodySize =
+                herbivoreSize;
+
+            data.genome.maxEnergy =
+                maxEnergy;
+
+            data.genome.startingEnergy =
                 startingEnergy;
 
-            data.energyDrainPerSecond =
+            data.genome.energyDrainPerSecond =
                 energyDrainPerSecond;
 
-            data.foodPerBite =
+            data.genome.foodPerBite =
                 foodPerBite;
 
-            data.lifespan =
+            data.genome.eatingDistance =
+                eatingDistance;
+
+            data.genome.lifespan =
                 lifespan;
 
-            data.maturityAge =
+            data.genome.maturityAge =
                 maturityAge;
 
-            data.reproductionCooldown =
+            data.genome.reproductionCooldown =
                 reproductionCooldown;
 
-            data.reproductionEnergyThreshold =
+            data.genome.reproductionEnergyThreshold =
                 reproductionEnergyThreshold;
+
+            data.mutationChance =
+                mutationChance;
+
+            data.mutationStrength =
+                mutationStrength;
 
             data.reproductionEnergyCost =
                 reproductionEnergyCost;
@@ -202,11 +232,14 @@ public class HerbivoreSpawner : MonoBehaviour
     private void CreateHerbivoreMaterial()
     {
         Shader shader =
-            Shader.Find("Universal Render Pipeline/Lit");
+            Shader.Find(
+                "Universal Render Pipeline/Lit"
+            );
 
         if (shader == null)
         {
-            shader = Shader.Find("Standard");
+            shader =
+                Shader.Find("Standard");
         }
 
         herbivoreMaterial =
