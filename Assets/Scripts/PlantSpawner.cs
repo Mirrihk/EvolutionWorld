@@ -21,6 +21,10 @@ public class PlantSpawner : MonoBehaviour
     [Min(0.05f)]
     public float plantHeight = 0.25f;
 
+    [Header("Plant Food")]
+    [Min(0.1f)]
+    public float plantFood = 10f;
+
     private Transform plantContainer;
     private Material plantMaterial;
 
@@ -57,7 +61,6 @@ public class PlantSpawner : MonoBehaviour
         {
             for (int z = 0; z < worldGrid.depth; z++)
             {
-                // Plants cannot grow in water.
                 if (worldGrid.IsWater(x, z))
                 {
                     continue;
@@ -66,13 +69,11 @@ public class PlantSpawner : MonoBehaviour
                 float moisture =
                     worldGrid.GetMoisture(x, z);
 
-                // Skip land that is too dry.
                 if (moisture < minimumMoisture)
                 {
                     continue;
                 }
 
-                // Randomly decide whether a plant grows here.
                 if (Random.value > spawnChance)
                 {
                     continue;
@@ -111,6 +112,11 @@ public class PlantSpawner : MonoBehaviour
 
                 plantRenderer.sharedMaterial =
                     plantMaterial;
+
+                Plant plantData =
+                    plant.AddComponent<Plant>();
+
+                plantData.Initialize(plantFood);
             }
         }
     }
