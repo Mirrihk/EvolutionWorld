@@ -19,6 +19,7 @@ public class SimulationControls : MonoBehaviour
 
     private int plantCount;
     private int herbivoreCount;
+    private int predatorCount;
 
     private float statisticsTimer;
 
@@ -97,6 +98,9 @@ public class SimulationControls : MonoBehaviour
 
         herbivoreCount =
             FindObjectsByType<Herbivore>().Length;
+
+        predatorCount =
+            FindObjectsByType<Predator>().Length;
     }
 
     private void OnGUI()
@@ -106,7 +110,7 @@ public class SimulationControls : MonoBehaviour
                 15f,
                 15f,
                 250f,
-                220f
+                240f
             ),
             GUI.skin.window
         );
@@ -132,6 +136,11 @@ public class SimulationControls : MonoBehaviour
         GUILayout.Label(
             "Herbivores: " +
             herbivoreCount
+        );
+
+        GUILayout.Label(
+            "Predators: " +
+            predatorCount
         );
 
         if (GUILayout.Button(
