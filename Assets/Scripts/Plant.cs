@@ -30,20 +30,15 @@ public class Plant : MonoBehaviour
             return 0f;
         }
 
-        float foodEaten = Mathf.Min(
-            amount,
-            CurrentFood
-        );
+        float foodEaten = Mathf.Min(amount, CurrentFood);
 
         CurrentFood -= foodEaten;
 
-        float foodPercent =
-            CurrentFood / maxFood;
+        float foodPercent = CurrentFood / maxFood;
 
         transform.localScale = new Vector3(
             originalScale.x,
-            originalScale.y *
-                Mathf.Max(0.05f, foodPercent),
+            originalScale.y * Mathf.Max(0.05f, foodPercent),
             originalScale.z
         );
 
