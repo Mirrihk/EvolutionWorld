@@ -5,6 +5,8 @@ public class Predator : MonoBehaviour
     [Header("References")]
     public WorldGrid worldGrid;
 
+    public PredatorSpawner spawner;
+
     [Header("Movement")]
     [Min(0.01f)]
     public float speed = 1.8f;
@@ -20,6 +22,10 @@ public class Predator : MonoBehaviour
 
     [Min(0.1f)]
     public float roamDistance = 4f;
+
+    [Header("Phenotype")]
+    [Min(0.1f)]
+    public float bodySize = 0.45f;
 
     [Header("Hunting")]
     [Min(0.1f)]
@@ -42,6 +48,35 @@ public class Predator : MonoBehaviour
     [Min(1f)]
     public float lifespan = 240f;
 
+    [Header("Reproduction")]
+    [Min(0f)]
+    public float maturityAge = 30f;
+
+    [Min(0f)]
+    public float reproductionCooldown = 25f;
+
+    [Min(0f)]
+    public float reproductionEnergyThreshold = 70f;
+
+    [Min(0f)]
+    public float reproductionEnergyCost = 35f;
+
+    [Min(0.1f)]
+    public float offspringStartingEnergy = 45f;
+
+    [Min(0.5f)]
+    public float mateSearchRadius = 3f;
+
+    [Min(1)]
+    public int maxPopulation = 30;
+
+    [Header("Mutation")]
+    [Range(0f, 1f)]
+    public float mutationChance = 0.08f;
+
+    [Range(0f, 1f)]
+    public float mutationStrength = 0.15f;
+
     [Header("Habitat")]
     public HabitatGenome habitat;
 
@@ -56,6 +91,9 @@ public class Predator : MonoBehaviour
     private float searchTimer;
     private float roamTimer;
 
+    private float timeSinceReproduction =
+        Mathf.Infinity;
+
     private bool hasRoamTarget;
 
     public float CurrentEnergy
@@ -63,6 +101,27 @@ public class Predator : MonoBehaviour
         get
         {
             return currentEnergy;
+        }
+    }
+
+    public float Age
+    {
+        get
+        {
+            return age;
+        }
+    }
+
+    public bool IsReadyToReproduce
+    {
+        get
+        {
+            return
+                age >= maturityAge &&
+                currentEnergy >=
+                reproductionEnergyThreshold &&
+                timeSinceReproduction >=
+                reproductionCooldown;
         }
     }
 
@@ -77,6 +136,12 @@ public class Predator : MonoBehaviour
         {
             worldGrid =
                 FindAnyObjectByType<WorldGrid>();
+        }
+
+        if (spawner == null)
+        {
+            spawner =
+                FindAnyObjectByType<PredatorSpawner>();
         }
 
         if (worldGrid == null)
@@ -110,6 +175,12 @@ public class Predator : MonoBehaviour
                 maxEnergy
             );
 
+        bodySize =
+            Mathf.Max(
+                0.1f,
+                bodySize
+            );
+
         currentEnergy =
             startingEnergy;
 
@@ -130,6 +201,9 @@ public class Predator : MonoBehaviour
 
         age += deltaTime;
 
+        timeSinceReproduction +=
+            deltaTime;
+
         currentEnergy -=
             energyDrainPerSecond *
             deltaTime;
@@ -140,6 +214,11 @@ public class Predator : MonoBehaviour
         {
             Die();
             return;
+        }
+
+        if (IsReadyToReproduce)
+        {
+            TryReproduce();
         }
 
         searchTimer -= deltaTime;
@@ -166,6 +245,147 @@ public class Predator : MonoBehaviour
         {
             MoveTowardRoamTarget(deltaTime);
         }
+    }
+
+    private void TryReproduce()
+    {
+        if (spawner == null)
+        {
+            spawner =
+                FindAnyObjectByType<PredatorSpawner>();
+        }
+
+        if (spawner == null)
+        {
+            return;
+        }
+
+        Predator mate =
+            FindNearbyMate();
+
+        if (mate == null)
+        {
+            return;
+        }
+
+        Vector3 offspringPosition =
+            Vector3.Lerp(
+                transform.position,
+                mate.transform.position,
+                0.5f
+            );
+
+        Predator offspring =
+            spawner.SpawnOffspring(
+                offspringPosition,
+                this,
+                mate
+            );
+
+        if (offspring != null)
+        {
+            MarkReproduced();
+            mate.MarkReproduced();
+        }
+    }
+
+    private Predator FindNearbyMate()
+    {
+        if (!IsReadyToReproduce)
+        {
+            return null;
+        }
+
+        if (
+            !TryGetTerrainAtPosition(
+                transform.position,
+                out WorldTerrainType terrainType))
+        {
+            return null;
+        }
+
+        Predator[] predators =
+            FindObjectsByType<Predator>();
+
+        Predator closestMate =
+            null;
+
+        float closestDistance =
+            mateSearchRadius;
+
+        for (
+            int i = 0;
+            i < predators.Length;
+            i++)
+        {
+            Predator candidate =
+                predators[i];
+
+            if (candidate == null)
+            {
+                continue;
+            }
+
+            if (candidate == this)
+            {
+                continue;
+            }
+
+            if (!candidate.IsReadyToReproduce)
+            {
+                continue;
+            }
+
+            float distance =
+                Vector3.Distance(
+                    transform.position,
+                    candidate.transform.position
+                );
+
+            if (distance > closestDistance)
+            {
+                continue;
+            }
+
+            if (!CanUseTerrain(terrainType))
+            {
+                continue;
+            }
+
+            if (
+                !candidate.CanOccupyTerrain(
+                    terrainType))
+            {
+                continue;
+            }
+
+            closestDistance =
+                distance;
+
+            closestMate =
+                candidate;
+        }
+
+        return closestMate;
+    }
+
+    public bool CanOccupyTerrain(
+        WorldTerrainType terrainType)
+    {
+        return CanUseTerrain(terrainType);
+    }
+
+    public void MarkReproduced()
+    {
+        currentEnergy =
+            Mathf.Max(
+                0f,
+                currentEnergy -
+                reproductionEnergyCost
+            );
+
+        timeSinceReproduction =
+            0f;
     }
 
     private Herbivore FindClosestCompatiblePrey()
