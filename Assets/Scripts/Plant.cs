@@ -8,39 +8,61 @@ public class Plant : MonoBehaviour
 
     public float CurrentFood { get; private set; }
 
-    private Vector3 originalScale;
+    public WorldTerrainType terrainType;
 
-    private void Awake()
+    public string plantName;
+
+    public bool IsAquaticPlant
     {
-        originalScale = transform.localScale;
-        CurrentFood = maxFood;
+        get
+        {
+            return IsAquaticTerrain(terrainType);
+        }
     }
 
-    public void Initialize(float foodAmount)
+    public void Initialize(
+        float startingFood)
     {
-        maxFood = Mathf.Max(0.1f, foodAmount);
-        CurrentFood = maxFood;
-        originalScale = transform.localScale;
+        maxFood =
+            Mathf.Max(
+                0.1f,
+                startingFood
+            );
+
+        CurrentFood =
+            maxFood;
     }
 
-    public float Eat(float amount)
+    public bool CanBeEatenBy(
+        HabitatGenome habitat)
     {
-        if (CurrentFood <= 0f)
+        if (habitat == null)
+        {
+            return false;
+        }
+
+        return habitat.CanOccupy(
+            terrainType
+        );
+    }
+
+    public float Eat(
+        float requestedAmount)
+    {
+        if (requestedAmount <= 0f ||
+            CurrentFood <= 0f)
         {
             return 0f;
         }
 
-        float foodEaten = Mathf.Min(amount, CurrentFood);
+        float foodEaten =
+            Mathf.Min(
+                requestedAmount,
+                CurrentFood
+            );
 
-        CurrentFood -= foodEaten;
-
-        float foodPercent = CurrentFood / maxFood;
-
-        transform.localScale = new Vector3(
-            originalScale.x,
-            originalScale.y * Mathf.Max(0.05f, foodPercent),
-            originalScale.z
-        );
+        CurrentFood -=
+            foodEaten;
 
         if (CurrentFood <= 0.01f)
         {
@@ -48,5 +70,28 @@ public class Plant : MonoBehaviour
         }
 
         return foodEaten;
+    }
+
+    private bool IsAquaticTerrain(
+        WorldTerrainType type)
+    {
+        return type ==
+                   WorldTerrainType.Water ||
+               type ==
+                   WorldTerrainType.River ||
+               type ==
+                   WorldTerrainType.Lake ||
+               type ==
+                   WorldTerrainType.Ocean ||
+               type ==
+                   WorldTerrainType.CoralReef ||
+               type ==
+                   WorldTerrainType.Fjord ||
+               type ==
+                   WorldTerrainType.DeepSea ||
+               type ==
+                   WorldTerrainType.KelpForest ||
+               type ==
+                   WorldTerrainType.Trench;
     }
 }

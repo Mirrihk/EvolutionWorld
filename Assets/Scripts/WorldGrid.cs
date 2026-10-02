@@ -86,7 +86,9 @@ public class WorldGrid : MonoBehaviour
             Destroy(generatedCells.gameObject);
         }
 
-        generatedCells = new GameObject("GeneratedCells").transform;
+        generatedCells =
+            new GameObject("GeneratedCells").transform;
+
         generatedCells.SetParent(transform, false);
 
         elevationMap = new float[width, depth];
@@ -103,42 +105,50 @@ public class WorldGrid : MonoBehaviour
 
     private void GenerateEnvironmentalMaps()
     {
-        float centerZ = (depth - 1) / 2f;
+        float centerZ =
+            (depth - 1) / 2f;
 
         for (int x = 0; x < width; x++)
         {
             for (int z = 0; z < depth; z++)
             {
-                float elevation = Mathf.PerlinNoise(
-                    (x + seed) * noiseScale,
-                    (z + seed) * noiseScale
-                );
+                float elevation =
+                    Mathf.PerlinNoise(
+                        (x + seed) * noiseScale,
+                        (z + seed) * noiseScale
+                    );
 
-                float moisture = Mathf.PerlinNoise(
-                    (x + moistureSeed) * moistureScale,
-                    (z + moistureSeed) * moistureScale
-                );
+                float moisture =
+                    Mathf.PerlinNoise(
+                        (x + moistureSeed) * moistureScale,
+                        (z + moistureSeed) * moistureScale
+                    );
 
-                float temperatureNoise = Mathf.PerlinNoise(
-                    (x + temperatureSeed) * temperatureScale,
-                    (z + temperatureSeed) * temperatureScale
-                );
+                float temperatureNoise =
+                    Mathf.PerlinNoise(
+                        (x + temperatureSeed) * temperatureScale,
+                        (z + temperatureSeed) * temperatureScale
+                    );
 
-                float latitude = Mathf.Abs(
-                    (z - centerZ) / Mathf.Max(1f, centerZ)
-                );
+                float latitude =
+                    Mathf.Abs(
+                        (z - centerZ) /
+                        Mathf.Max(1f, centerZ)
+                    );
 
-                float temperature = Mathf.Clamp01(
-                    temperatureNoise * 0.65f +
-                    (1f - latitude) * 0.35f -
-                    elevation * 0.15f
-                );
+                float temperature =
+                    Mathf.Clamp01(
+                        temperatureNoise * 0.65f +
+                        (1f - latitude) * 0.35f -
+                        elevation * 0.15f
+                    );
 
                 elevationMap[x, z] = elevation;
                 moistureMap[x, z] = moisture;
                 temperatureMap[x, z] = temperature;
 
-                waterMap[x, z] = elevation < waterLevel;
+                waterMap[x, z] =
+                    elevation < waterLevel;
             }
         }
     }
@@ -157,8 +167,11 @@ public class WorldGrid : MonoBehaviour
 
     private void BuildTerrainCells()
     {
-        float centerX = (width - 1) / 2f;
-        float centerZ = (depth - 1) / 2f;
+        float centerX =
+            (width - 1) / 2f;
+
+        float centerZ =
+            (depth - 1) / 2f;
 
         for (int x = 0; x < width; x++)
         {
@@ -179,6 +192,7 @@ public class WorldGrid : MonoBehaviour
                     );
 
                 cell.name = $"Cell_{x}_{z}";
+
                 cell.transform.SetParent(
                     generatedCells,
                     false
@@ -406,8 +420,15 @@ public class WorldGrid : MonoBehaviour
         bool edgeCell =
             IsEdgeCell(x, z);
 
+        float waterDepth =
+            Mathf.InverseLerp(
+                waterLevel,
+                0f,
+                elevation
+            );
+
         bool shallowWater =
-            elevation > waterLevel - 0.08f;
+            waterDepth < 0.35f;
 
         if (nearMountain && edgeCell)
         {
@@ -423,9 +444,28 @@ public class WorldGrid : MonoBehaviour
 
         if (!edgeCell &&
             nearLand &&
+            temperature > 0.40f &&
+            GetBiomeNoise(x, z, 720) > 0.55f &&
+            waterDepth < 0.55f)
+        {
+            return WorldTerrainType.KelpForest;
+        }
+
+        if (!edgeCell &&
+            nearLand &&
             IsRiverChannel(x, z))
         {
             return WorldTerrainType.River;
+        }
+
+        if (waterDepth > 0.84f)
+        {
+            return WorldTerrainType.Trench;
+        }
+
+        if (waterDepth > 0.55f)
+        {
+            return WorldTerrainType.DeepSea;
         }
 
         if (edgeCell ||
@@ -484,7 +524,7 @@ public class WorldGrid : MonoBehaviour
     private void CreateMaterials()
     {
         int terrainCount =
-            (int)WorldTerrainType.Fjord + 1;
+            (int)WorldTerrainType.Trench + 1;
 
         terrainMaterials =
             new Material[terrainCount];
@@ -609,6 +649,15 @@ public class WorldGrid : MonoBehaviour
 
             case WorldTerrainType.Fjord:
                 return new Color(0.12f, 0.38f, 0.60f);
+
+            case WorldTerrainType.DeepSea:
+                return new Color(0.01f, 0.04f, 0.20f);
+
+            case WorldTerrainType.KelpForest:
+                return new Color(0.02f, 0.28f, 0.18f);
+
+            case WorldTerrainType.Trench:
+                return new Color(0.00f, 0.01f, 0.06f);
 
             default:
                 return Color.white;
@@ -835,7 +884,8 @@ public class WorldGrid : MonoBehaviour
         int x,
         int z)
     {
-        if (!IsInsideGrid(x, z))
+        if (!IsInsideGrid(x, z) ||
+            terrainMap == null)
         {
             return false;
         }
@@ -849,7 +899,8 @@ public class WorldGrid : MonoBehaviour
         int x,
         int z)
     {
-        if (!IsInsideGrid(x, z))
+        if (!IsInsideGrid(x, z) ||
+            terrainMap == null)
         {
             return false;
         }
@@ -1005,7 +1056,13 @@ public class WorldGrid : MonoBehaviour
                terrainType ==
                    WorldTerrainType.CoralReef ||
                terrainType ==
-                   WorldTerrainType.Fjord;
+                   WorldTerrainType.Fjord ||
+               terrainType ==
+                   WorldTerrainType.DeepSea ||
+               terrainType ==
+                   WorldTerrainType.KelpForest ||
+               terrainType ==
+                   WorldTerrainType.Trench;
     }
 
     public static bool IsColdTerrain(

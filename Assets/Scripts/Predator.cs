@@ -26,25 +26,51 @@ public class Predator : MonoBehaviour
     [Min(1f)]
     public float lifespan = 90f;
 
+    [Header("Terrain Placement")]
+    [Min(0f)]
+    public float surfaceOffset = 0.45f;
+
     public float Energy { get; private set; }
     public float Age { get; private set; }
 
+    private WorldGrid worldGrid;
     private Herbivore targetHerbivore;
+    private Vector3 lastValidPosition;
 
     private void Start()
     {
-        Energy = Mathf.Clamp(startingEnergy, 0f, maxEnergy);
+        worldGrid = FindAnyObjectByType<WorldGrid>();
+
+        Energy = Mathf.Clamp(
+            startingEnergy,
+            0f,
+            maxEnergy
+        );
+
         Age = 0f;
+        lastValidPosition = transform.position;
+
+        SnapToTerrain();
     }
 
     private void Update()
     {
         Age += Time.deltaTime;
-        Energy -= energyDrainPerSecond * Time.deltaTime;
 
-        if (Age >= lifespan || Energy <= 0f)
+        Energy -=
+            energyDrainPerSecond *
+            Time.deltaTime;
+
+        if (Age >= lifespan ||
+            Energy <= 0f)
         {
             Destroy(gameObject);
+            return;
+        }
+
+        if (!SnapToTerrain())
+        {
+            transform.position = lastValidPosition;
             return;
         }
 
@@ -60,18 +86,59 @@ public class Predator : MonoBehaviour
 
         MoveTowardTarget();
 
-        if (Vector3.Distance(transform.position, targetHerbivore.transform.position) <= eatingDistance)
+        if (IsCloseEnoughToEat())
         {
             EatTarget();
         }
     }
 
+    private bool SnapToTerrain()
+    {
+        if (worldGrid == null)
+        {
+            return true;
+        }
+
+        if (!worldGrid.TryGetCellCoordinates(
+                transform.position,
+                out int x,
+                out int z))
+        {
+            return false;
+        }
+
+        Vector3 surfacePosition =
+            worldGrid.GetCellWorldPosition(
+                x,
+                z,
+                surfaceOffset
+            );
+
+        Vector3 correctedPosition =
+            transform.position;
+
+        correctedPosition.y =
+            surfacePosition.y;
+
+        transform.position =
+            correctedPosition;
+
+        lastValidPosition =
+            correctedPosition;
+
+        return true;
+    }
+
     private void FindClosestHerbivore()
     {
-        Herbivore[] herbivores = FindObjectsByType<Herbivore>();
+        Herbivore[] herbivores =
+            FindObjectsByType<Herbivore>();
 
-        float closestDistance = Mathf.Infinity;
-        Herbivore closestHerbivore = null;
+        float closestDistance =
+            Mathf.Infinity;
+
+        Herbivore closestHerbivore =
+            null;
 
         foreach (Herbivore herbivore in herbivores)
         {
@@ -80,10 +147,14 @@ public class Predator : MonoBehaviour
                 continue;
             }
 
-            float distance = Vector3.Distance(
-                transform.position,
-                herbivore.transform.position
-            );
+            Vector3 difference =
+                herbivore.transform.position -
+                transform.position;
+
+            difference.y = 0f;
+
+            float distance =
+                difference.magnitude;
 
             if (distance < closestDistance)
             {
@@ -92,26 +163,58 @@ public class Predator : MonoBehaviour
             }
         }
 
-        targetHerbivore = closestHerbivore;
+        targetHerbivore =
+            closestHerbivore;
     }
 
     private void MoveTowardTarget()
     {
-        Vector3 targetPosition = targetHerbivore.transform.position;
-        targetPosition.y = transform.position.y;
+        if (targetHerbivore == null)
+        {
+            return;
+        }
 
-        transform.position = Vector3.MoveTowards(
-            transform.position,
-            targetPosition,
-            speed * Time.deltaTime
-        );
+        Vector3 targetPosition =
+            targetHerbivore.transform.position;
 
-        Vector3 direction = targetPosition - transform.position;
+        targetPosition.y =
+            transform.position.y;
+
+        Vector3 direction =
+            targetPosition -
+            transform.position;
 
         if (direction.sqrMagnitude > 0.001f)
         {
-            transform.forward = direction.normalized;
+            transform.forward =
+                direction.normalized;
         }
+
+        transform.position =
+            Vector3.MoveTowards(
+                transform.position,
+                targetPosition,
+                speed * Time.deltaTime
+            );
+
+        SnapToTerrain();
+    }
+
+    private bool IsCloseEnoughToEat()
+    {
+        if (targetHerbivore == null)
+        {
+            return false;
+        }
+
+        Vector3 difference =
+            targetHerbivore.transform.position -
+            transform.position;
+
+        difference.y = 0f;
+
+        return difference.sqrMagnitude <=
+               eatingDistance * eatingDistance;
     }
 
     private void EatTarget()
@@ -121,12 +224,15 @@ public class Predator : MonoBehaviour
             return;
         }
 
-        Destroy(targetHerbivore.gameObject);
-
-        Energy = Mathf.Min(
-            maxEnergy,
-            Energy + energyFromPrey
+        Destroy(
+            targetHerbivore.gameObject
         );
+
+        Energy =
+            Mathf.Min(
+                maxEnergy,
+                Energy + energyFromPrey
+            );
 
         targetHerbivore = null;
     }

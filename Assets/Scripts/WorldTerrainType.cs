@@ -31,4 +31,7 @@ public enum WorldTerrainType
     Oasis,
     Mangrove,
     Fjord,
+    DeepSea,
+    KelpForest,
+    Trench
 }

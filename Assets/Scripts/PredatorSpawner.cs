@@ -15,7 +15,8 @@ public class PredatorSpawner : MonoBehaviour
     [Min(0.1f)]
     public float predatorSize = 0.45f;
 
-    public Color predatorColor = new Color(0.8f, 0.08f, 0.05f);
+    public Color predatorColor =
+        new Color(0.8f, 0.08f, 0.05f);
 
     [Header("Movement")]
     [Min(0.1f)]
@@ -48,12 +49,16 @@ public class PredatorSpawner : MonoBehaviour
     {
         if (worldGrid == null)
         {
-            worldGrid = FindAnyObjectByType<WorldGrid>();
+            worldGrid =
+                FindAnyObjectByType<WorldGrid>();
         }
 
         if (worldGrid == null)
         {
-            Debug.LogError("PredatorSpawner could not find a WorldGrid.");
+            Debug.LogError(
+                "PredatorSpawner could not find WorldGrid."
+            );
+
             return;
         }
 
@@ -64,29 +69,45 @@ public class PredatorSpawner : MonoBehaviour
 
     private void CreateContainer()
     {
-        GameObject containerObject = new GameObject("Predators");
-        predatorContainer = containerObject.transform;
+        GameObject container =
+            new GameObject("Predators");
+
+        predatorContainer =
+            container.transform;
     }
 
     private void CreateMaterial()
     {
-        Shader shader = Shader.Find("Universal Render Pipeline/Lit");
+        Shader shader =
+            Shader.Find(
+                "Universal Render Pipeline/Lit"
+            );
 
         if (shader == null)
         {
-            shader = Shader.Find("Standard");
+            shader =
+                Shader.Find("Standard");
         }
 
-        predatorMaterial = new Material(shader);
+        predatorMaterial =
+            new Material(shader);
 
-        if (predatorMaterial.HasProperty("_BaseColor"))
+        if (predatorMaterial.HasProperty(
+                "_BaseColor"))
         {
-            predatorMaterial.SetColor("_BaseColor", predatorColor);
+            predatorMaterial.SetColor(
+                "_BaseColor",
+                predatorColor
+            );
         }
 
-        if (predatorMaterial.HasProperty("_Color"))
+        if (predatorMaterial.HasProperty(
+                "_Color"))
         {
-            predatorMaterial.SetColor("_Color", predatorColor);
+            predatorMaterial.SetColor(
+                "_Color",
+                predatorColor
+            );
         }
     }
 
@@ -94,7 +115,9 @@ public class PredatorSpawner : MonoBehaviour
     {
         Random.InitState(seed);
 
-        for (int i = 0; i < startingPredators; i++)
+        for (int i = 0;
+             i < startingPredators;
+             i++)
         {
             SpawnOnePredator(i);
         }
@@ -104,61 +127,98 @@ public class PredatorSpawner : MonoBehaviour
     {
         const int maximumAttempts = 100;
 
-        for (int attempt = 0; attempt < maximumAttempts; attempt++)
+        for (int attempt = 0;
+             attempt < maximumAttempts;
+             attempt++)
         {
-            int x = Random.Range(0, worldGrid.width);
-            int z = Random.Range(0, worldGrid.depth);
+            int x =
+                Random.Range(
+                    0,
+                    worldGrid.width
+                );
+
+            int z =
+                Random.Range(
+                    0,
+                    worldGrid.depth
+                );
 
             if (worldGrid.IsWater(x, z))
             {
                 continue;
             }
 
-            GameObject predatorObject = GameObject.CreatePrimitive(
-                PrimitiveType.Capsule
-            );
+            GameObject predatorObject =
+                GameObject.CreatePrimitive(
+                    PrimitiveType.Capsule
+                );
 
-            predatorObject.name = "Predator_" + index;
-            predatorObject.transform.SetParent(predatorContainer);
+            predatorObject.name =
+                $"Predator_{index}";
+
+            predatorObject.transform.SetParent(
+                predatorContainer
+            );
 
             predatorObject.transform.localScale =
                 Vector3.one * predatorSize;
 
             predatorObject.transform.position =
-                worldGrid.GetCellWorldPosition(x, z, predatorSize);
+                worldGrid.GetCellWorldPosition(
+                    x,
+                    z,
+                    predatorSize
+                );
 
-            Collider objectCollider =
+            Collider collider =
                 predatorObject.GetComponent<Collider>();
 
-            if (objectCollider != null)
+            if (collider != null)
             {
-                Destroy(objectCollider);
+                Destroy(collider);
             }
 
-            MeshRenderer meshRenderer =
+            MeshRenderer renderer =
                 predatorObject.GetComponent<MeshRenderer>();
 
-            if (meshRenderer != null)
+            if (renderer != null)
             {
-                meshRenderer.material = predatorMaterial;
+                renderer.material =
+                    predatorMaterial;
             }
 
             Predator predator =
                 predatorObject.AddComponent<Predator>();
 
-            predator.speed = speed;
-            predator.eatingDistance = eatingDistance;
-            predator.maxEnergy = maxEnergy;
-            predator.startingEnergy = startingEnergy;
-            predator.energyDrainPerSecond = energyDrainPerSecond;
-            predator.energyFromPrey = energyFromPrey;
-            predator.lifespan = lifespan;
+            predator.speed =
+                speed;
+
+            predator.eatingDistance =
+                eatingDistance;
+
+            predator.maxEnergy =
+                maxEnergy;
+
+            predator.startingEnergy =
+                startingEnergy;
+
+            predator.energyDrainPerSecond =
+                energyDrainPerSecond;
+
+            predator.energyFromPrey =
+                energyFromPrey;
+
+            predator.lifespan =
+                lifespan;
+
+            predator.surfaceOffset =
+                predatorSize;
 
             return;
         }
 
         Debug.LogWarning(
-            "PredatorSpawner could not find a suitable land cell."
+            "PredatorSpawner could not find land."
         );
     }
 }
