@@ -34,6 +34,18 @@ public class Predator : MonoBehaviour
     [Min(0.1f)]
     public float energyFromPrey = 35f;
 
+    [Min(0.5f)]
+    public float sightRadius = 12f;
+
+    [Min(0.25f)]
+    public float blockedTargetTimeout = 1.5f;
+
+    [Min(0.05f)]
+    public float stuckRecoveryInterval = 0.25f;
+
+    [Min(0f)]
+    public float blockedTargetRetryDelay = 4f;
+
     [Header("Energy")]
     [Min(1f)]
     public float maxEnergy = 100f;
@@ -83,6 +95,17 @@ public class Predator : MonoBehaviour
     [Min(0f)]
     public float flyingHeight = 2.5f;
 
+    private static readonly float[] blockedRecoveryAngles =
+    {
+        45f,
+        -45f,
+        90f,
+        -90f,
+        135f,
+        -135f,
+        180f
+    };
+
     private Herbivore currentTarget;
     private Vector3 roamTarget;
 
@@ -90,6 +113,10 @@ public class Predator : MonoBehaviour
     private float age;
     private float searchTimer;
     private float roamTimer;
+    private float blockedTargetTimer;
+    private float stuckRecoveryTimer;
+    private float blockedTargetRetryTimer;
+    private Herbivore blockedTarget;
 
     private float timeSinceReproduction =
         Mathf.Infinity;
@@ -181,6 +208,18 @@ public class Predator : MonoBehaviour
                 bodySize
             );
 
+        sightRadius =
+            Mathf.Max(
+                0.5f,
+                sightRadius
+            );
+
+        eatingDistance =
+            Mathf.Max(
+                0.1f,
+                eatingDistance
+            );
+
         currentEnergy =
             startingEnergy;
 
@@ -221,14 +260,34 @@ public class Predator : MonoBehaviour
             TryReproduce();
         }
 
+        blockedTargetRetryTimer =
+            Mathf.Max(
+                0f,
+                blockedTargetRetryTimer - deltaTime
+            );
+
+        if (blockedTargetRetryTimer <= 0f)
+        {
+            blockedTarget = null;
+        }
+
         searchTimer -= deltaTime;
 
         if (
             searchTimer <= 0f ||
             !IsTargetValid(currentTarget))
         {
-            currentTarget =
+            Herbivore newTarget =
                 FindClosestCompatiblePrey();
+
+            if (newTarget != currentTarget)
+            {
+                blockedTargetTimer = 0f;
+                stuckRecoveryTimer = 0f;
+            }
+
+            currentTarget =
+                newTarget;
 
             searchTimer =
                 Mathf.Max(
@@ -396,8 +455,8 @@ public class Predator : MonoBehaviour
         Herbivore closest =
             null;
 
-        float closestDistance =
-            float.MaxValue;
+        float closestDistanceSquared =
+            sightRadius * sightRadius;
 
         for (
             int i = 0;
@@ -408,22 +467,28 @@ public class Predator : MonoBehaviour
                 herbivores[i];
 
             if (
-                !IsTargetValid(herbivore))
+                !IsTargetValid(herbivore) ||
+                (herbivore == blockedTarget &&
+                 blockedTargetRetryTimer > 0f))
             {
                 continue;
             }
 
-            float distance =
-                Vector3.Distance(
-                    transform.position,
-                    herbivore.transform.position
-                );
+            Vector3 difference =
+                herbivore.transform.position -
+                transform.position;
+
+            difference.y = 0f;
+
+            float distanceSquared =
+                difference.sqrMagnitude;
 
             if (
-                distance < closestDistance)
+                distanceSquared <=
+                closestDistanceSquared)
             {
-                closestDistance =
-                    distance;
+                closestDistanceSquared =
+                    distanceSquared;
 
                 closest =
                     herbivore;
@@ -461,17 +526,17 @@ public class Predator : MonoBehaviour
     private void MoveTowardTarget(
         float deltaTime)
     {
-        if (
-            !IsTargetValid(currentTarget))
-        {
-            currentTarget =
-                null;
+        Herbivore target =
+            currentTarget;
 
+        if (!IsTargetValid(target))
+        {
+            currentTarget = null;
             return;
         }
 
         Vector3 targetPosition =
-            currentTarget.transform.position;
+            target.transform.position;
 
         MoveTowardPosition(
             targetPosition,
@@ -479,14 +544,24 @@ public class Predator : MonoBehaviour
             true
         );
 
-        float distance =
-            Vector3.Distance(
-                transform.position,
-                currentTarget.transform.position
-            );
+        // The movement step may drop a blocked target, or another
+        // predator may have eaten it while this frame was running.
+        if (
+            target == null ||
+            currentTarget != target)
+        {
+            return;
+        }
+
+        Vector3 flatDifference =
+            target.transform.position -
+            transform.position;
+
+        flatDifference.y = 0f;
 
         if (
-            distance <= eatingDistance)
+            flatDifference.sqrMagnitude <=
+            eatingDistance * eatingDistance)
         {
             EatCurrentTarget();
         }
@@ -534,7 +609,7 @@ public class Predator : MonoBehaviour
     private void MoveTowardPosition(
         Vector3 destination,
         float deltaTime,
-        bool clearTargetWhenBlocked)
+        bool recoverWhenBlocked)
     {
         Vector3 flatDirection =
             new Vector3(
@@ -568,16 +643,94 @@ public class Predator : MonoBehaviour
                 correctedPosition;
 
             FaceDirection(direction);
+
+            if (recoverWhenBlocked)
+            {
+                blockedTargetTimer = 0f;
+                stuckRecoveryTimer = 0f;
+            }
         }
-        else if (clearTargetWhenBlocked)
+        else if (recoverWhenBlocked)
         {
-            currentTarget =
-                null;
+            blockedTargetTimer += deltaTime;
+            stuckRecoveryTimer -= deltaTime;
+
+            if (stuckRecoveryTimer <= 0f)
+            {
+                TryRecoverAroundBlockedPath(
+                    direction,
+                    deltaTime
+                );
+
+                stuckRecoveryTimer =
+                    Mathf.Max(
+                        0.05f,
+                        stuckRecoveryInterval
+                    );
+            }
+
+            if (
+                blockedTargetTimer >=
+                blockedTargetTimeout)
+            {
+                blockedTarget =
+                    currentTarget;
+
+                blockedTargetRetryTimer =
+                    Mathf.Max(
+                        0f,
+                        blockedTargetRetryDelay
+                    );
+
+                currentTarget = null;
+                searchTimer = 0f;
+                blockedTargetTimer = 0f;
+                stuckRecoveryTimer = 0f;
+            }
         }
         else
         {
             ChooseNewRoamTarget();
         }
+    }
+
+    private bool TryRecoverAroundBlockedPath(
+        Vector3 blockedDirection,
+        float deltaTime)
+    {
+        for (
+            int i = 0;
+            i < blockedRecoveryAngles.Length;
+            i++)
+        {
+            Vector3 recoveryDirection =
+                Quaternion.AngleAxis(
+                    blockedRecoveryAngles[i],
+                    Vector3.up
+                ) * blockedDirection;
+
+            Vector3 recoveryPosition =
+                transform.position +
+                recoveryDirection *
+                speed *
+                deltaTime;
+
+            if (
+                !TryGetSmoothMovementPosition(
+                    recoveryPosition,
+                    out Vector3 correctedPosition))
+            {
+                continue;
+            }
+
+            transform.position =
+                correctedPosition;
+
+            FaceDirection(recoveryDirection);
+            return true;
+        }
+
+        return false;
     }
 
     private void ChooseNewRoamTarget()
@@ -674,6 +827,9 @@ public class Predator : MonoBehaviour
 
         currentTarget =
             null;
+
+        blockedTargetTimer = 0f;
+        stuckRecoveryTimer = 0f;
 
         ChooseNewRoamTarget();
     }

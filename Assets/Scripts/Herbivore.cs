@@ -35,6 +35,19 @@ public class Herbivore : MonoBehaviour
     [Min(1)]
     public int maxPopulation = 50;
 
+    [Header("Predator Avoidance")]
+    [Min(0.5f)]
+    public float threatDetectionRadius = 6f;
+
+    [Min(1f)]
+    public float fleeSpeedMultiplier = 1.6f;
+
+    [Min(0.1f)]
+    public float fleeDuration = 1.5f;
+
+    [Min(0.05f)]
+    public float threatSearchInterval = 0.25f;
+
     public float Energy { get; private set; }
     public float Age { get; private set; }
 
@@ -49,8 +62,25 @@ public class Herbivore : MonoBehaviour
     private WorldGrid worldGrid;
     private Plant targetPlant;
 
+    private static readonly float[] fleeTurnAngles =
+    {
+        0f,
+        45f,
+        -45f,
+        90f,
+        -90f,
+        135f,
+        -135f,
+        180f
+    };
+
+    private Predator currentThreat;
+    private Vector3 lastThreatPosition;
+
     private float searchTimer;
     private float reproductionTimer;
+    private float threatSearchTimer;
+    private float fleeTimer;
 
     private Vector3 lastValidPosition;
 
@@ -99,6 +129,32 @@ public class Herbivore : MonoBehaviour
         Age = 0f;
         searchTimer = 0f;
         reproductionTimer = 0f;
+        threatSearchTimer = 0f;
+        fleeTimer = 0f;
+
+        threatDetectionRadius =
+            Mathf.Max(
+                0.5f,
+                threatDetectionRadius
+            );
+
+        fleeSpeedMultiplier =
+            Mathf.Max(
+                1f,
+                fleeSpeedMultiplier
+            );
+
+        fleeDuration =
+            Mathf.Max(
+                0.1f,
+                fleeDuration
+            );
+
+        threatSearchInterval =
+            Mathf.Max(
+                0.05f,
+                threatSearchInterval
+            );
 
         lastValidPosition =
             transform.position;
@@ -136,6 +192,17 @@ public class Herbivore : MonoBehaviour
             return;
         }
 
+        UpdateThreatDetection(
+            Time.deltaTime
+        );
+
+        if (fleeTimer > 0f)
+        {
+            MoveAwayFromThreat();
+            TryReproduce();
+            return;
+        }
+
         searchTimer -=
             Time.deltaTime;
 
@@ -159,6 +226,177 @@ public class Herbivore : MonoBehaviour
         }
 
         TryReproduce();
+    }
+
+    private void UpdateThreatDetection(
+        float deltaTime)
+    {
+        threatSearchTimer -= deltaTime;
+
+        if (threatSearchTimer <= 0f)
+        {
+            threatSearchTimer =
+                Mathf.Max(
+                    0.05f,
+                    threatSearchInterval
+                );
+
+            Predator nearestPredator =
+                FindClosestPredator();
+
+            if (nearestPredator != null)
+            {
+                currentThreat =
+                    nearestPredator;
+
+                lastThreatPosition =
+                    nearestPredator.transform.position;
+
+                fleeTimer =
+                    fleeDuration;
+            }
+            else
+            {
+                currentThreat = null;
+            }
+        }
+
+        if (currentThreat != null)
+        {
+            lastThreatPosition =
+                currentThreat.transform.position;
+        }
+        else
+        {
+            fleeTimer =
+                Mathf.Max(
+                    0f,
+                    fleeTimer - deltaTime
+                );
+        }
+
+        if (fleeTimer <= 0f)
+        {
+            currentThreat = null;
+        }
+    }
+
+    private Predator FindClosestPredator()
+    {
+        Predator[] predators =
+            FindObjectsByType<Predator>();
+
+        Predator closestPredator =
+            null;
+
+        float closestDistanceSquared =
+            threatDetectionRadius *
+            threatDetectionRadius;
+
+        for (
+            int i = 0;
+            i < predators.Length;
+            i++)
+        {
+            Predator predator =
+                predators[i];
+
+            if (predator == null)
+            {
+                continue;
+            }
+
+            Vector3 difference =
+                predator.transform.position -
+                transform.position;
+
+            difference.y = 0f;
+
+            float distanceSquared =
+                difference.sqrMagnitude;
+
+            if (
+                distanceSquared <=
+                closestDistanceSquared)
+            {
+                closestDistanceSquared =
+                    distanceSquared;
+
+                closestPredator =
+                    predator;
+            }
+        }
+
+        return closestPredator;
+    }
+
+    private void MoveAwayFromThreat()
+    {
+        Vector3 awayDirection =
+            transform.position -
+            lastThreatPosition;
+
+        awayDirection.y = 0f;
+
+        if (awayDirection.sqrMagnitude <= 0.001f)
+        {
+            Vector2 randomDirection =
+                Random.insideUnitCircle.normalized;
+
+            awayDirection =
+                new Vector3(
+                    randomDirection.x,
+                    0f,
+                    randomDirection.y
+                );
+
+            if (awayDirection.sqrMagnitude <= 0.001f)
+            {
+                awayDirection =
+                    Vector3.forward;
+            }
+        }
+
+        awayDirection.Normalize();
+
+        float moveDistance =
+            Mathf.Max(
+                0.01f,
+                genome.speed *
+                fleeSpeedMultiplier *
+                Time.deltaTime
+            );
+
+        for (
+            int i = 0;
+            i < fleeTurnAngles.Length;
+            i++)
+        {
+            Vector3 direction =
+                Quaternion.AngleAxis(
+                    fleeTurnAngles[i],
+                    Vector3.up
+                ) * awayDirection;
+
+            Vector3 nextPosition =
+                transform.position +
+                direction *
+                moveDistance;
+
+            if (!CanOccupyPosition(nextPosition))
+            {
+                continue;
+            }
+
+            transform.position =
+                nextPosition;
+
+            transform.forward =
+                direction.normalized;
+
+            SnapToTerrain();
+            return;
+        }
     }
 
     private void FindClosestEdiblePlant()

@@ -40,6 +40,19 @@ public class HerbivoreSpawner : MonoBehaviour
     [Min(0.01f)]
     public float eatingDistance = 0.75f;
 
+    [Header("Predator Avoidance")]
+    [Min(0.5f)]
+    public float threatDetectionRadius = 6f;
+
+    [Min(1f)]
+    public float fleeSpeedMultiplier = 1.6f;
+
+    [Min(0.1f)]
+    public float fleeDuration = 1.5f;
+
+    [Min(0.05f)]
+    public float threatSearchInterval = 0.25f;
+
     [Header("Life Cycle")]
     [Min(1f)]
     public float lifespan = 180f;
@@ -109,6 +122,7 @@ public class HerbivoreSpawner : MonoBehaviour
         }
 
         Random.InitState(seed);
+
         SpawnStartingHerbivores();
     }
 
@@ -302,6 +316,18 @@ public class HerbivoreSpawner : MonoBehaviour
 
         herbivore.mutationStrength =
             mutationStrength;
+
+        herbivore.threatDetectionRadius =
+            threatDetectionRadius;
+
+        herbivore.fleeSpeedMultiplier =
+            fleeSpeedMultiplier;
+
+        herbivore.fleeDuration =
+            fleeDuration;
+
+        herbivore.threatSearchInterval =
+            threatSearchInterval;
     }
 
     private HerbivoreGenome CreateStartingGenome()
@@ -412,345 +438,420 @@ public class HerbivoreSpawner : MonoBehaviour
     }
 
     private HerbivoreGenome CreateChildGenome(
-        HerbivoreGenome parentGenomeA,
-        HerbivoreGenome parentGenomeB)
+        HerbivoreGenome parentA,
+        HerbivoreGenome parentB)
     {
-        if (
-            parentGenomeA == null &&
-            parentGenomeB == null)
-        {
-            return CreateStartingGenome();
-        }
-
-        if (parentGenomeA == null)
-        {
-            parentGenomeA =
-                parentGenomeB;
-        }
-
         HerbivoreGenome child =
             new HerbivoreGenome();
 
-        if (parentGenomeB == null)
-        {
-            CopyGenome(
-                parentGenomeA,
-                child
+        child.speed =
+            MutateValue(
+                Inherit(
+                    parentA != null
+                        ? parentA.speed
+                        : speed,
+                    parentB != null
+                        ? parentB.speed
+                        : speed
+                ),
+                0.1f,
+                8f
             );
-        }
-        else
-        {
-            child.speed =
+
+        child.bodySize =
+            MutateValue(
                 Inherit(
-                    parentGenomeA.speed,
-                    parentGenomeB.speed
-                );
+                    parentA != null
+                        ? parentA.bodySize
+                        : herbivoreSize,
+                    parentB != null
+                        ? parentB.bodySize
+                        : herbivoreSize
+                ),
+                0.1f,
+                2f
+            );
 
-            child.bodySize =
+        child.maxEnergy =
+            MutateValue(
                 Inherit(
-                    parentGenomeA.bodySize,
-                    parentGenomeB.bodySize
-                );
-
-            child.maxEnergy =
-                Inherit(
-                    parentGenomeA.maxEnergy,
-                    parentGenomeB.maxEnergy
-                );
-
-            child.startingEnergy =
-                Inherit(
-                    parentGenomeA.startingEnergy,
-                    parentGenomeB.startingEnergy
-                );
-
-            child.energyDrainPerSecond =
-                Inherit(
-                    parentGenomeA.energyDrainPerSecond,
-                    parentGenomeB.energyDrainPerSecond
-                );
-
-            child.foodPerBite =
-                Inherit(
-                    parentGenomeA.foodPerBite,
-                    parentGenomeB.foodPerBite
-                );
-
-            child.eatingDistance =
-                Inherit(
-                    parentGenomeA.eatingDistance,
-                    parentGenomeB.eatingDistance
-                );
-
-            child.lifespan =
-                Inherit(
-                    parentGenomeA.lifespan,
-                    parentGenomeB.lifespan
-                );
-
-            child.maturityAge =
-                Inherit(
-                    parentGenomeA.maturityAge,
-                    parentGenomeB.maturityAge
-                );
-
-            child.reproductionCooldown =
-                Inherit(
-                    parentGenomeA.reproductionCooldown,
-                    parentGenomeB.reproductionCooldown
-                );
-
-            child.reproductionEnergyThreshold =
-                Inherit(
-                    parentGenomeA.reproductionEnergyThreshold,
-                    parentGenomeB.reproductionEnergyThreshold
-                );
-
-            child.offspringStartingEnergy =
-                Inherit(
-                    parentGenomeA.offspringStartingEnergy,
-                    parentGenomeB.offspringStartingEnergy
-                );
-
-            child.habitat =
-                new HabitatGenome();
-
-            child.habitat.landAdaptation =
-                Inherit(
-                    parentGenomeA.habitat.landAdaptation,
-                    parentGenomeB.habitat.landAdaptation
-                );
-
-            child.habitat.aquaticAdaptation =
-                Inherit(
-                    parentGenomeA.habitat.aquaticAdaptation,
-                    parentGenomeB.habitat.aquaticAdaptation
-                );
-
-            child.habitat.flightAdaptation =
-                Inherit(
-                    parentGenomeA.habitat.flightAdaptation,
-                    parentGenomeB.habitat.flightAdaptation
-                );
-
-            child.habitat.coldTolerance =
-                Inherit(
-                    parentGenomeA.habitat.coldTolerance,
-                    parentGenomeB.habitat.coldTolerance
-                );
-
-            child.habitat.mountainAdaptation =
-                Inherit(
-                    parentGenomeA.habitat.mountainAdaptation,
-                    parentGenomeB.habitat.mountainAdaptation
-                );
-        }
-
-        MutateGenome(child);
+                    parentA != null
+                        ? parentA.maxEnergy
+                        : maxEnergy,
+                    parentB != null
+                        ? parentB.maxEnergy
+                        : maxEnergy
+                ),
+                10f,
+                500f
+            );
 
         child.startingEnergy =
-            Mathf.Clamp(
-                child.startingEnergy,
+            MutateValue(
+                Inherit(
+                    parentA != null
+                        ? parentA.startingEnergy
+                        : offspringStartingEnergy,
+                    parentB != null
+                        ? parentB.startingEnergy
+                        : offspringStartingEnergy
+                ),
+                1f,
+                child.maxEnergy
+            );
+
+        child.energyDrainPerSecond =
+            MutateValue(
+                Inherit(
+                    parentA != null
+                        ? parentA.energyDrainPerSecond
+                        : energyDrainPerSecond,
+                    parentB != null
+                        ? parentB.energyDrainPerSecond
+                        : energyDrainPerSecond
+                ),
+                0.05f,
+                10f
+            );
+
+        child.foodPerBite =
+            MutateValue(
+                Inherit(
+                    parentA != null
+                        ? parentA.foodPerBite
+                        : foodPerBite,
+                    parentB != null
+                        ? parentB.foodPerBite
+                        : foodPerBite
+                ),
+                0.1f,
+                50f
+            );
+
+        child.eatingDistance =
+            MutateValue(
+                Inherit(
+                    parentA != null
+                        ? parentA.eatingDistance
+                        : eatingDistance,
+                    parentB != null
+                        ? parentB.eatingDistance
+                        : eatingDistance
+                ),
+                0.1f,
+                4f
+            );
+
+        child.lifespan =
+            MutateValue(
+                Inherit(
+                    parentA != null
+                        ? parentA.lifespan
+                        : lifespan,
+                    parentB != null
+                        ? parentB.lifespan
+                        : lifespan
+                ),
+                10f,
+                1500f
+            );
+
+        child.maturityAge =
+            MutateValue(
+                Inherit(
+                    parentA != null
+                        ? parentA.maturityAge
+                        : maturityAge,
+                    parentB != null
+                        ? parentB.maturityAge
+                        : maturityAge
+                ),
+                1f,
+                child.lifespan
+            );
+
+        child.reproductionCooldown =
+            MutateValue(
+                Inherit(
+                    parentA != null
+                        ? parentA.reproductionCooldown
+                        : reproductionCooldown,
+                    parentB != null
+                        ? parentB.reproductionCooldown
+                        : reproductionCooldown
+                ),
+                1f,
+                300f
+            );
+
+        child.reproductionEnergyThreshold =
+            MutateValue(
+                Inherit(
+                    parentA != null
+                        ? parentA.reproductionEnergyThreshold
+                        : reproductionEnergyThreshold,
+                    parentB != null
+                        ? parentB.reproductionEnergyThreshold
+                        : reproductionEnergyThreshold
+                ),
                 1f,
                 child.maxEnergy
             );
 
         child.offspringStartingEnergy =
-            Mathf.Clamp(
-                child.offspringStartingEnergy,
+            MutateValue(
+                Inherit(
+                    parentA != null
+                        ? parentA.offspringStartingEnergy
+                        : offspringStartingEnergy,
+                    parentB != null
+                        ? parentB.offspringStartingEnergy
+                        : offspringStartingEnergy
+                ),
                 1f,
                 child.maxEnergy
+            );
+
+        child.habitat =
+            CreateChildHabitat(
+                parentA != null
+                    ? parentA.habitat
+                    : null,
+                parentB != null
+                    ? parentB.habitat
+                    : null
             );
 
         return child;
     }
 
-    private void CopyGenome(
-        HerbivoreGenome source,
-        HerbivoreGenome target)
+    private HabitatGenome CreateChildHabitat(
+        HabitatGenome parentA,
+        HabitatGenome parentB)
     {
-        target.speed =
-            source.speed;
+        HabitatGenome first =
+            CloneHabitat(parentA);
 
-        target.bodySize =
-            source.bodySize;
+        HabitatGenome second =
+            CloneHabitat(parentB);
 
-        target.maxEnergy =
-            source.maxEnergy;
-
-        target.startingEnergy =
-            source.startingEnergy;
-
-        target.energyDrainPerSecond =
-            source.energyDrainPerSecond;
-
-        target.foodPerBite =
-            source.foodPerBite;
-
-        target.eatingDistance =
-            source.eatingDistance;
-
-        target.lifespan =
-            source.lifespan;
-
-        target.maturityAge =
-            source.maturityAge;
-
-        target.reproductionCooldown =
-            source.reproductionCooldown;
-
-        target.reproductionEnergyThreshold =
-            source.reproductionEnergyThreshold;
-
-        target.offspringStartingEnergy =
-            source.offspringStartingEnergy;
-
-        target.habitat =
+        HabitatGenome child =
             new HabitatGenome();
 
-        target.habitat.landAdaptation =
-            source.habitat.landAdaptation;
+        child.landAdaptation =
+            MutateTrait(
+                Inherit(
+                    first.landAdaptation,
+                    second.landAdaptation
+                )
+            );
 
-        target.habitat.aquaticAdaptation =
-            source.habitat.aquaticAdaptation;
+        child.aquaticAdaptation =
+            MutateTrait(
+                Inherit(
+                    first.aquaticAdaptation,
+                    second.aquaticAdaptation
+                )
+            );
 
-        target.habitat.flightAdaptation =
-            source.habitat.flightAdaptation;
+        child.flightAdaptation =
+            MutateTrait(
+                Inherit(
+                    first.flightAdaptation,
+                    second.flightAdaptation
+                )
+            );
 
-        target.habitat.coldTolerance =
-            source.habitat.coldTolerance;
+        child.coldTolerance =
+            MutateTrait(
+                Inherit(
+                    first.coldTolerance,
+                    second.coldTolerance
+                )
+            );
 
-        target.habitat.mountainAdaptation =
-            source.habitat.mountainAdaptation;
+        child.mountainAdaptation =
+            MutateTrait(
+                Inherit(
+                    first.mountainAdaptation,
+                    second.mountainAdaptation
+                )
+            );
+
+        return child;
     }
 
-    private void MutateGenome(
-        HerbivoreGenome genome)
+    private HabitatGenome CloneHabitat(
+        HabitatGenome source)
     {
-        genome.speed =
-            MutateValue(
-                genome.speed,
-                0.1f,
-                6f
-            );
-
-        genome.bodySize =
-            MutateValue(
-                genome.bodySize,
-                0.15f,
-                1.5f
-            );
-
-        genome.maxEnergy =
-            MutateValue(
-                genome.maxEnergy,
-                20f,
-                500f
-            );
-
-        genome.startingEnergy =
-            MutateValue(
-                genome.startingEnergy,
-                5f,
-                genome.maxEnergy
-            );
-
-        genome.energyDrainPerSecond =
-            MutateValue(
-                genome.energyDrainPerSecond,
-                0.05f,
-                10f
-            );
-
-        genome.foodPerBite =
-            MutateValue(
-                genome.foodPerBite,
-                0.5f,
-                50f
-            );
-
-        genome.eatingDistance =
-            MutateValue(
-                genome.eatingDistance,
-                0.2f,
-                3f
-            );
-
-        genome.lifespan =
-            MutateValue(
-                genome.lifespan,
-                10f,
-                1000f
-            );
-
-        genome.maturityAge =
-            MutateValue(
-                genome.maturityAge,
-                1f,
-                genome.lifespan
-            );
-
-        genome.reproductionCooldown =
-            MutateValue(
-                genome.reproductionCooldown,
-                1f,
-                200f
-            );
-
-        genome.reproductionEnergyThreshold =
-            MutateValue(
-                genome.reproductionEnergyThreshold,
-                10f,
-                genome.maxEnergy
-            );
-
-        genome.offspringStartingEnergy =
-            MutateValue(
-                genome.offspringStartingEnergy,
-                1f,
-                genome.maxEnergy
-            );
-
-        if (genome.habitat == null)
+        if (source == null)
         {
-            genome.habitat =
+            HabitatGenome defaultHabitat =
                 new HabitatGenome();
+
+            defaultHabitat.landAdaptation =
+                landAdaptation;
+
+            defaultHabitat.aquaticAdaptation =
+                aquaticAdaptation;
+
+            defaultHabitat.flightAdaptation =
+                flightAdaptation;
+
+            defaultHabitat.coldTolerance =
+                coldTolerance;
+
+            defaultHabitat.mountainAdaptation =
+                mountainAdaptation;
+
+            return defaultHabitat;
         }
 
-        genome.habitat.landAdaptation =
-            MutateValue(
-                genome.habitat.landAdaptation,
-                0f,
-                1f
-            );
+        HabitatGenome clone =
+            new HabitatGenome();
 
-        genome.habitat.aquaticAdaptation =
-            MutateValue(
-                genome.habitat.aquaticAdaptation,
-                0f,
-                1f
-            );
+        clone.landAdaptation =
+            source.landAdaptation;
 
-        genome.habitat.flightAdaptation =
-            MutateValue(
-                genome.habitat.flightAdaptation,
-                0f,
-                1f
-            );
+        clone.aquaticAdaptation =
+            source.aquaticAdaptation;
 
-        genome.habitat.coldTolerance =
-            MutateValue(
-                genome.habitat.coldTolerance,
-                0f,
-                1f
-            );
+        clone.flightAdaptation =
+            source.flightAdaptation;
 
-        genome.habitat.mountainAdaptation =
-            MutateValue(
-                genome.habitat.mountainAdaptation,
-                0f,
-                1f
-            );
+        clone.coldTolerance =
+            source.coldTolerance;
+
+        clone.mountainAdaptation =
+            source.mountainAdaptation;
+
+        return clone;
+    }
+
+    private bool TryGetSpawnPosition(
+        HerbivoreGenome genome,
+        out Vector3 spawnPosition)
+    {
+        if (
+            worldGrid.TryGetCellCoordinates(
+                transform.position,
+                out int preferredX,
+                out int preferredZ))
+        {
+            WorldTerrainType preferredTerrain =
+                worldGrid.GetTerrainType(
+                    preferredX,
+                    preferredZ
+                );
+
+            if (
+                genome.habitat.CanOccupy(
+                    preferredTerrain))
+            {
+                spawnPosition =
+                    worldGrid.GetCellWorldPosition(
+                        preferredX,
+                        preferredZ,
+                        genome.bodySize
+                    );
+
+                return true;
+            }
+        }
+
+        for (
+            int attempt = 0;
+            attempt < 200;
+            attempt++)
+        {
+            int x =
+                Random.Range(
+                    0,
+                    worldGrid.width
+                );
+
+            int z =
+                Random.Range(
+                    0,
+                    worldGrid.depth
+                );
+
+            WorldTerrainType terrainType =
+                worldGrid.GetTerrainType(
+                    x,
+                    z
+                );
+
+            if (
+                !genome.habitat.CanOccupy(
+                    terrainType))
+            {
+                continue;
+            }
+
+            spawnPosition =
+                worldGrid.GetCellWorldPosition(
+                    x,
+                    z,
+                    genome.bodySize
+                );
+
+            return true;
+        }
+
+        spawnPosition =
+            transform.position;
+
+        return false;
+    }
+
+    private Color GetColorForGenome(
+        HerbivoreGenome genome)
+    {
+        if (genome.habitat == null)
+        {
+            return herbivoreColor;
+        }
+
+        CreatureLifestyle lifestyle =
+            genome.habitat.GetLifestyle();
+
+        switch (lifestyle)
+        {
+            case CreatureLifestyle.Aquatic:
+                return new Color(
+                    0.1f,
+                    0.55f,
+                    1f
+                );
+
+            case CreatureLifestyle.Amphibious:
+                return new Color(
+                    0.65f,
+                    0.9f,
+                    0.2f
+                );
+
+            case CreatureLifestyle.Flying:
+                return new Color(
+                    0.8f,
+                    0.35f,
+                    1f
+                );
+
+            default:
+                return herbivoreColor;
+        }
+    }
+
+    private float MutateTrait(
+        float value)
+    {
+        return MutateValue(
+            value,
+            0f,
+            1f
+        );
     }
 
     private float MutateValue(
@@ -789,177 +890,6 @@ public class HerbivoreSpawner : MonoBehaviour
         return Random.value < 0.5f
             ? valueA
             : valueB;
-    }
-
-    private bool TryGetSpawnPosition(
-        HerbivoreGenome genome,
-        out Vector3 spawnPosition)
-    {
-        for (
-            int attempt = 0;
-            attempt < 500;
-            attempt++)
-        {
-            int x =
-                Random.Range(
-                    0,
-                    worldGrid.width
-                );
-
-            int z =
-                Random.Range(
-                    0,
-                    worldGrid.depth
-                );
-
-            WorldTerrainType terrainType =
-                worldGrid.GetTerrainType(
-                    x,
-                    z
-                );
-
-            if (
-                CanUseTerrain(
-                    genome,
-                    terrainType))
-            {
-                spawnPosition =
-                    worldGrid.GetCellWorldPosition(
-                        x,
-                        z,
-                        genome.bodySize * 0.5f
-                    );
-
-                return true;
-            }
-        }
-
-        spawnPosition =
-            transform.position;
-
-        return false;
-    }
-
-    private bool CanUseTerrain(
-        HerbivoreGenome genome,
-        WorldTerrainType terrainType)
-    {
-        if (
-            genome == null ||
-            genome.habitat == null)
-        {
-            return true;
-        }
-
-        bool aquaticTerrain =
-            terrainType ==
-                WorldTerrainType.Water ||
-            terrainType ==
-                WorldTerrainType.River ||
-            terrainType ==
-                WorldTerrainType.Lake ||
-            terrainType ==
-                WorldTerrainType.Ocean ||
-            terrainType ==
-                WorldTerrainType.DeepSea ||
-            terrainType ==
-                WorldTerrainType.KelpForest ||
-            terrainType ==
-                WorldTerrainType.Trench ||
-            terrainType ==
-                WorldTerrainType.CoralReef ||
-            terrainType ==
-                WorldTerrainType.Mangrove ||
-            terrainType ==
-                WorldTerrainType.Fjord;
-
-        bool coldTerrain =
-            terrainType ==
-                WorldTerrainType.Ice ||
-            terrainType ==
-                WorldTerrainType.Snow ||
-            terrainType ==
-                WorldTerrainType.Glacier ||
-            terrainType ==
-                WorldTerrainType.Tundra;
-
-        bool mountainTerrain =
-            terrainType ==
-                WorldTerrainType.Mountain ||
-            terrainType ==
-                WorldTerrainType.Cliff ||
-            terrainType ==
-                WorldTerrainType.Plateau ||
-            terrainType ==
-                WorldTerrainType.Canyon ||
-            terrainType ==
-                WorldTerrainType.Volcano;
-
-        if (aquaticTerrain)
-        {
-            return
-                genome.habitat.aquaticAdaptation
-                >= 0.35f;
-        }
-
-        float adaptation =
-            genome.habitat.landAdaptation;
-
-        if (coldTerrain)
-        {
-            adaptation =
-                Mathf.Min(
-                    adaptation,
-                    genome.habitat.coldTolerance
-                );
-        }
-
-        if (mountainTerrain)
-        {
-            adaptation =
-                Mathf.Min(
-                    adaptation,
-                    genome.habitat.mountainAdaptation
-                );
-        }
-
-        return adaptation >= 0.35f;
-    }
-
-    private Color GetColorForGenome(
-        HerbivoreGenome genome)
-    {
-        if (
-            genome != null &&
-            genome.habitat != null)
-        {
-            if (
-                genome.habitat.aquaticAdaptation >
-                genome.habitat.landAdaptation +
-                0.20f)
-            {
-                return new Color(
-                    0.15f,
-                    0.65f,
-                    1f
-                );
-            }
-
-            if (
-                genome.habitat.aquaticAdaptation >=
-                0.60f &&
-                genome.habitat.landAdaptation >=
-                0.60f)
-            {
-                return new Color(
-                    0.65f,
-                    0.85f,
-                    0.25f
-                );
-            }
-        }
-
-        return herbivoreColor;
     }
 
     private int GetCurrentPopulation()

@@ -44,6 +44,18 @@ public class PredatorSpawner : MonoBehaviour
     [Min(0.1f)]
     public float energyFromPrey = 35f;
 
+    [Min(0.5f)]
+    public float sightRadius = 12f;
+
+    [Min(0.25f)]
+    public float blockedTargetTimeout = 1.5f;
+
+    [Min(0.05f)]
+    public float stuckRecoveryInterval = 0.25f;
+
+    [Min(0f)]
+    public float blockedTargetRetryDelay = 4f;
+
     [Header("Energy")]
     [Min(1f)]
     public float maxEnergy = 100f;
@@ -209,6 +221,16 @@ public class PredatorSpawner : MonoBehaviour
                 ),
                 0.15f,
                 1.5f
+            );
+
+        float childSightRadius =
+            MutateValue(
+                Inherit(
+                    parentA.sightRadius,
+                    parentB.sightRadius
+                ),
+                2f,
+                40f
             );
 
         float childSpeed =
@@ -377,6 +399,9 @@ public class PredatorSpawner : MonoBehaviour
                 "Predator_Offspring"
             );
 
+        child.sightRadius =
+            childSightRadius;
+
         child.speed =
             childSpeed;
 
@@ -496,6 +521,18 @@ public class PredatorSpawner : MonoBehaviour
 
         predator.energyFromPrey =
             energyFromPrey;
+
+        predator.sightRadius =
+            sightRadius;
+
+        predator.blockedTargetTimeout =
+            blockedTargetTimeout;
+
+        predator.stuckRecoveryInterval =
+            stuckRecoveryInterval;
+
+        predator.blockedTargetRetryDelay =
+            blockedTargetRetryDelay;
 
         predator.maxEnergy =
             maxEnergy;
