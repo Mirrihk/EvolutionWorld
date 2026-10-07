@@ -4,7 +4,6 @@ public class Predator : MonoBehaviour
 {
     [Header("References")]
     public WorldGrid worldGrid;
-
     public PredatorSpawner spawner;
 
     [Header("Movement")]
@@ -45,6 +44,12 @@ public class Predator : MonoBehaviour
 
     [Min(0f)]
     public float blockedTargetRetryDelay = 4f;
+
+    [Min(0f)]
+    public float preyPredictionTime = 0.65f;
+
+    [Min(0f)]
+    public float maxPredictionDistance = 4f;
 
     [Header("Energy")]
     [Min(1f)]
@@ -117,6 +122,10 @@ public class Predator : MonoBehaviour
     private float stuckRecoveryTimer;
     private float blockedTargetRetryTimer;
     private Herbivore blockedTarget;
+
+    private Herbivore velocityTrackedTarget;
+    private Vector3 previousTargetPosition;
+    private Vector3 targetVelocity;
 
     private float timeSinceReproduction =
         Mathf.Infinity;
@@ -220,6 +229,18 @@ public class Predator : MonoBehaviour
                 eatingDistance
             );
 
+        preyPredictionTime =
+            Mathf.Max(
+                0f,
+                preyPredictionTime
+            );
+
+        maxPredictionDistance =
+            Mathf.Max(
+                0f,
+                maxPredictionDistance
+            );
+
         currentEnergy =
             startingEnergy;
 
@@ -284,6 +305,7 @@ public class Predator : MonoBehaviour
             {
                 blockedTargetTimer = 0f;
                 stuckRecoveryTimer = 0f;
+                ResetTargetVelocityTracking();
             }
 
             currentTarget =
@@ -535,8 +557,13 @@ public class Predator : MonoBehaviour
             return;
         }
 
+        UpdateTargetVelocity(
+            target,
+            deltaTime
+        );
+
         Vector3 targetPosition =
-            target.transform.position;
+            GetPredictedTargetPosition(target);
 
         MoveTowardPosition(
             targetPosition,
@@ -565,6 +592,85 @@ public class Predator : MonoBehaviour
         {
             EatCurrentTarget();
         }
+    }
+
+    private void UpdateTargetVelocity(
+        Herbivore target,
+        float deltaTime)
+    {
+        Vector3 targetPosition =
+            target.transform.position;
+
+        targetPosition.y = 0f;
+
+        if (velocityTrackedTarget != target)
+        {
+            velocityTrackedTarget =
+                target;
+
+            previousTargetPosition =
+                targetPosition;
+
+            targetVelocity =
+                Vector3.zero;
+
+            return;
+        }
+
+        if (deltaTime <= 0.0001f)
+        {
+            return;
+        }
+
+        Vector3 observedVelocity =
+            (targetPosition -
+             previousTargetPosition) /
+            deltaTime;
+
+        observedVelocity =
+            Vector3.ClampMagnitude(
+                observedVelocity,
+                15f
+            );
+
+        targetVelocity =
+            Vector3.Lerp(
+                targetVelocity,
+                observedVelocity,
+                0.35f
+            );
+
+        targetVelocity.y = 0f;
+
+        previousTargetPosition =
+            targetPosition;
+    }
+
+    private Vector3 GetPredictedTargetPosition(
+        Herbivore target)
+    {
+        Vector3 predictionOffset =
+            targetVelocity *
+            preyPredictionTime;
+
+        predictionOffset.y = 0f;
+
+        predictionOffset =
+            Vector3.ClampMagnitude(
+                predictionOffset,
+                maxPredictionDistance
+            );
+
+        return
+            target.transform.position +
+            predictionOffset;
+    }
+
+    private void ResetTargetVelocityTracking()
+    {
+        velocityTrackedTarget = null;
+        previousTargetPosition = Vector3.zero;
+        targetVelocity = Vector3.zero;
     }
 
     private void MoveTowardRoamTarget(
@@ -830,6 +936,7 @@ public class Predator : MonoBehaviour
 
         blockedTargetTimer = 0f;
         stuckRecoveryTimer = 0f;
+        ResetTargetVelocityTracking();
 
         ChooseNewRoamTarget();
     }

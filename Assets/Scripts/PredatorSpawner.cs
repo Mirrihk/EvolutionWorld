@@ -56,6 +56,12 @@ public class PredatorSpawner : MonoBehaviour
     [Min(0f)]
     public float blockedTargetRetryDelay = 4f;
 
+    [Min(0f)]
+    public float preyPredictionTime = 0.65f;
+
+    [Min(0f)]
+    public float maxPredictionDistance = 4f;
+
     [Header("Energy")]
     [Min(1f)]
     public float maxEnergy = 100f;
@@ -533,6 +539,12 @@ public class PredatorSpawner : MonoBehaviour
 
         predator.blockedTargetRetryDelay =
             blockedTargetRetryDelay;
+
+        predator.preyPredictionTime =
+            preyPredictionTime;
+
+        predator.maxPredictionDistance =
+            maxPredictionDistance;
 
         predator.maxEnergy =
             maxEnergy;
